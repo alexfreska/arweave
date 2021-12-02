@@ -932,12 +932,18 @@ handle(<<"GET">>, [<<"tx">>, Hash, Field], Req, _Pid) ->
 						<<"data">> ->
 							serve_tx_data(Req, TX);
 						_ ->
-							{TXJSON} = ar_serialize:tx_to_json_struct(TX),
-							case catch val_for_key(Field, TXJSON) of
+							case catch binary_to_existing_atom(Field) of
 								{'EXIT', _} ->
-									{404, #{}, <<>>, Req};
-								Val ->
-									{200, #{}, Val, Req}
+									{400, #{}, jiffy:encode(#{ error => invalid_field }), Req};
+								FieldAtom ->
+									{TXJSON} = ar_serialize:tx_to_json_struct(TX),
+									case catch val_for_key(FieldAtom, TXJSON) of
+										{'EXIT', _} ->
+											{400, #{}, jiffy:encode(#{ error => invalid_field }),
+													Req};
+										Val ->
+											{200, #{}, Val, Req}
+									end
 							end
 					end
 			end
